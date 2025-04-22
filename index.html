@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ร้านของชำ - บันทึกการเซ็น</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .container { max-width: 500px; margin: auto; }
+    input, button { padding: 10px; font-size: 1rem; margin-top: 10px; width: 100%; }
+    .info { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ระบบร้านของชำ</h2>
+    <div id="customer-info"></div>
+    <input type="number" id="amount" placeholder="จำนวนเงินที่เซ็น (บาท)"/>
+    <button onclick="submitForm()">บันทึกยอดเซ็น</button>
+    <hr />
+    <div class="info">
+      <p>ยอดค้างชำระ: <span id="due">-</span> บาท</p>
+      <p>คิดเพิ่ม 10%: <span id="total">-</span> บาท</p>
+      <button onclick="markPaid()">✓ ชำระแล้ว</button>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const customerId = params.get("id");
+
+    const customers = {
+      "001": "สมชาย",
+      "002": "สมหญิง",
+      "003": "อดิศักดิ์",
+      "004": "ปวีณา",
+      "005": "ศุภชัย",
+      "006": "ณัฐวุฒิ",
+      "007": "วิไล",
+      "008": "มานะ",
+      "009": "จิตราภรณ์",
+      "010": "วีระ",
+      "011": "พิมพ์ใจ",
+      "012": "อนุชา",
+      "013": "ลัดดา",
+      "014": "ณรงค์",
+      "015": "อัจฉรา",
+      "016": "สมปอง",
+      "017": "ศิริพร",
+      "018": "บุญเลิศ",
+      "019": "จารุวรรณ",
+      "020": "เกรียงไกร"
+    };
+
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxGeeIjZ14bjm8MLA-zmF8sZjQwzehwWb4MAsuF6ehGFg1J5oC4rn7V8kOa8nKgm7HYqw/exec";
+
+    document.getElementById("customer-info").innerHTML = customerId && customers[customerId]
+      ? `<strong>รหัส:</strong> ${customerId} <br/><strong>ชื่อ:</strong> ${customers[customerId]}`
+      : "ไม่พบข้อมูลลูกค้า";
+
+    function submitForm() {
+      const amount = parseFloat(document.getElementById("amount").value);
+      if (!amount || !customerId) return alert("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+
+      const formData = new FormData();
+      formData.append("id", customerId);
+      formData.append("name", customers[customerId]);
+      formData.append("amount", amount);
+      formData.append("status", "ค้างชำระ");
+
+      fetch(scriptURL, { method: "POST", body: formData })
+        .then(response => alert("บันทึกเรียบร้อย"))
+        .catch(error => alert("เกิดข้อผิดพลาด"));
+      
+      // แสดงยอดรวมพร้อม +10%
+      const total = (amount * 1.1).toFixed(2);
+      document.getElementById("due").textContent = amount.toFixed(2);
+      document.getElementById("total").textContent = total;
+    }
+
+    function markPaid() {
+      if (!customerId) return;
+      const formData = new FormData();
+      formData.append("id", customerId);
+      formData.append("name", customers[customerId]);
+      formData.append("amount", "0");
+      formData.append("status", "ชำระแล้ว");
+
+      fetch(scriptURL, { method: "POST", body: formData })
+        .then(response => alert("บันทึกการชำระเงินเรียบร้อย"))
+        .catch(error => alert("เกิดข้อผิดพลาด"));
+    }
+  </script>
+</body>
+</html>
