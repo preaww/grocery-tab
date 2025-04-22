@@ -1,58 +1,153 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Grocery Tab</title>
+  <title>บันทึกการเซ็น</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-    input, button { padding: 8px; margin: 5px 0; width: 100%; }
-    .info { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+    body { font-family: sans-serif; }
+    .container { width: 80%; margin: 0 auto; }
+    #scan-area { margin-bottom: 20px; }
+    #result { margin-bottom: 10px; font-weight: bold; }
+    input[type=number] { padding: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+    button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    button.pay { background-color: #008CBA; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <h1>บันทึกยอดเซ็น</h1>
-  <div id="info" class="info" style="display:none;"></div>
-  <input type="number" id="amount" placeholder="ใส่จำนวนเงิน (บาท)" />
-  <button onclick="submitAmount()">เพิ่มยอดเซ็น</button>
-  <button onclick="markAsPaid()">จ่ายเงินแล้ว</button>
+  <div class="container">
+    <h1>บันทึกการเซ็น</h1>
+
+    <div id="scan-area">
+      <h2>สแกน QR Code</h2>
+      <input type="text" id="qrcode" placeholder="วาง QR Code ที่นี่">
+      <button onclick="findCustomer()">ค้นหาลูกค้า</button>
+      </div>
+
+    <div id="customer-info" style="display:none;">
+      <h2>ข้อมูลลูกค้า</h2>
+      <p>ชื่อ: <span id="customer-name"></span></p>
+      <p>ยอดค้างชำระ: <span id="customer-balance"></span> บาท</p>
+
+      <div>
+        <h3>บันทึกการเซ็น</h3>
+        <input type="number" id="sen-amount" placeholder="จำนวนเงินที่เซ็น (บาท)">
+        <button onclick="recordNewSen()">บันทึกการเซ็น</button>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <h3>ชำระเงิน</h3>
+        <input type="number" id="pay-amount" placeholder="จำนวนเงินที่ชำระ (บาท)">
+        <button class="pay" onclick="recordNewPayment()">จ่าย</button>
+      </div>
+    </div>
+
+    <div id="result" style="display:none;"></div>
+    <div id="error" class="error" style="display:none;"></div>
+  </div>
 
   <script>
-    const API_URL = "https://script.google.com/a/macros/nu.ac.th/s/AKfycbwY-UCpoxsnQUJVzVTZMQJkNsPsot1obV8vtKbzUS2NID7GzxLHrckSSbycYLr5x3K04w/exec";
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("id");
+    let currentCustomerId = null;
 
-    async function loadInfo() {
-      if (!id) return;
-      const res = await fetch(`${API_URL}?action=get&id=${id}`);
-      const data = await res.json();
-      document.getElementById("info").style.display = "block";
-      document.getElementById("info").innerHTML = `
-        <strong>รหัส:</strong> ${data.id}<br>
-        <strong>ชื่อ:</strong> ${data.name}<br>
-        <strong>ยอดที่เซ็นไว้:</strong> ${data.total} บาท<br>
-        <strong>สถานะ:</strong> ${data.paid || "ยังไม่จ่าย"}
-      `;
+    function findCustomer() {
+      const qrCode = document.getElementById('qrcode').value;
+      google.script.run.getCustomerData(qrCode)
+        .then(function(customer) {
+          if (customer) {
+            document.getElementById('customer-name').textContent = customer.name;
+            document.getElementById('customer-balance').textContent = customer.balance;
+            document.getElementById('customer-info').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            currentCustomerId = customer.id;
+          } else {
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('customer-info').style.display = 'none';
+            document.getElementById('error').textContent = 'ไม่พบข้อมูลลูกค้าสำหรับ QR Code นี้';
+            document.getElementById('error').style.display = 'block';
+            currentCustomerId = null;
+          }
+        }).catch(function(error) {
+          console.error('เกิดข้อผิดพลาด:', error);
+          document.getElementById('result').style.display = 'none';
+          document.getElementById('customer-info').style.display = 'none';
+          document.getElementById('error').textContent = 'เกิดข้อผิดพลาดในการดึงข้อมูล';
+          document.getElementById('error').style.display = 'block';
+          currentCustomerId = null;
+        });
     }
 
-    async function submitAmount() {
-      const amount = parseFloat(document.getElementById("amount").value);
-      if (isNaN(amount)) {
-        alert("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+    function recordNewSen() {
+      if (!currentCustomerId) {
+        document.getElementById('error').textContent = 'กรุณาสแกน QR Code หรือค้นหาลูกค้าก่อน';
+        document.getElementById('error').style.display = 'block';
         return;
       }
-      await fetch(`${API_URL}?action=add&id=${id}&amount=${amount}`);
-      alert("บันทึกยอดเรียบร้อย");
-      location.reload();
+      const amount = parseFloat(document.getElementById('sen-amount').value);
+      if (isNaN(amount) || amount <= 0) {
+        document.getElementById('error').textContent = 'กรุณากรอกจำนวนเงินที่เซ็นให้ถูกต้อง';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+      google.script.run.recordSen(currentCustomerId, amount)
+        .then(function(success) {
+          if (success) {
+            document.getElementById('result').textContent = 'บันทึกการเซ็นเรียบร้อย';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('sen-amount').value = '';
+            findCustomer(); // รีเฟรชข้อมูลลูกค้า
+          } else {
+            document.getElementById('error').textContent = 'เกิดข้อผิดพลาดในการบันทึกการเซ็น';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+          }
+        }).catch(function(error) {
+          console.error('เกิดข้อผิดพลาด:', error);
+          document.getElementById('error').textContent = 'เกิดข้อผิดพลาดในการบันทึก';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('result').style.display = 'none';
+        });
     }
 
-    async function markAsPaid() {
-      await fetch(`${API_URL}?action=paid&id=${id}`);
-      alert("บันทึกการจ่ายเงินแล้ว");
-      location.reload();
+    function recordNewPayment() {
+      if (!currentCustomerId) {
+        document.getElementById('error').textContent = 'กรุณาสแกน QR Code หรือค้นหาลูกค้าก่อน';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+      const amount = parseFloat(document.getElementById('pay-amount').value);
+      if (isNaN(amount) || amount <= 0) {
+        document.getElementById('error').textContent = 'กรุณากรอกจำนวนเงินที่ชำระให้ถูกต้อง';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+      google.script.run.recordPayment(currentCustomerId, amount)
+        .then(function(success) {
+          if (success) {
+            document.getElementById('result').textContent = 'บันทึกการชำระเงินเรียบร้อย';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('pay-amount').value = '';
+            findCustomer(); // รีเฟรชข้อมูลลูกค้า
+          } else {
+            document.getElementById('error').textContent = 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+          }
+        }).catch(function(error) {
+          console.error('เกิดข้อผิดพลาด:', error);
+          document.getElementById('error').textContent = 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('result').style.display = 'none';
+        });
     }
 
-    loadInfo();
+    // คุณอาจจะต้องเพิ่มโค้ด JavaScript สำหรับการสแกน QR Code จากกล้องที่นี่
+    // ตัวอย่างการใช้ไลบรารี เช่น QuaggaJS หรือ JsQR
+    // function startScan() {
+    //   // โค้ดสำหรับเริ่มต้นการสแกน QR Code
+    // }
   </script>
 </body>
 </html>
+
