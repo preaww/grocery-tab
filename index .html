@@ -1,0 +1,73 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ระบบเซ็นร้านของชำ</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f0f0f0; }
+    .container { background: white; padding: 2rem; border-radius: 1rem; max-width: 600px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
+    .info { margin-top: 1rem; font-weight: bold; }
+    .paid-section { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ระบบเซ็นของร้านของชำ</h2>
+    <div id="customerInfo"></div>
+    <input type="number" id="amount" placeholder="จำนวนเงินที่เซ็น (บาท)">
+    <button onclick="submitAmount()">บันทึกยอดเซ็น</button>
+    <div class="paid-section">
+      <button onclick="checkDebt()">ดูยอดค้าง + จ่ายเงิน</button>
+      <div id="debtInfo" class="info"></div>
+      <button onclick="markAsPaid()">✓ ชำระแล้ว</button>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    const sheetURL = "https://script.google.com/macros/s/AKfycbxGeeIjZ14bjm8MLA-zmF8sZjQwzehwWb4MAsuF6ehGFg1J5oC4rn7V8kOa8nKgm7HYqw/exec";
+    const customerNames = {
+      "001": "สมชาย", "002": "สมหญิง", "003": "อนุชา", "004": "วราภรณ์", "005": "สิทธิ์",
+      "006": "มานพ", "007": "สายฝน", "008": "อดิศักดิ์", "009": "ศิริพร", "010": "เกรียงไกร",
+      "011": "ประภาพร", "012": "ยุทธนา", "013": "สุรีย์พร", "014": "จักรกฤษ", "015": "ศุภชัย",
+      "016": "จารุวรรณ", "017": "พงศ์เทพ", "018": "สุจิตรา", "019": "ทรงพล", "020": "กัญญา"
+    };
+
+    if (id && customerNames[id]) {
+      document.getElementById("customerInfo").innerText = `รหัสลูกค้า: ${id} | ชื่อ: ${customerNames[id]}`;
+    } else {
+      document.getElementById("customerInfo").innerText = "ไม่พบข้อมูลลูกค้า";
+    }
+
+    function submitAmount() {
+      const amount = document.getElementById("amount").value;
+      if (!amount) return alert("กรุณาใส่จำนวนเงิน");
+
+      fetch(sheetURL + `?action=add&id=${id}&amount=${amount}`)
+        .then(res => res.text())
+        .then(data => alert("บันทึกข้อมูลเรียบร้อย"));
+    }
+
+    function checkDebt() {
+      fetch(sheetURL + `?action=get&id=${id}`)
+        .then(res => res.json())
+        .then(data => {
+          const total = parseFloat(data.total || 0);
+          const withFee = total * 1.1;
+          document.getElementById("debtInfo").innerText =
+            `ยอดค้าง: ${total.toFixed(2)} บาท | ยอดที่ต้องจ่าย (รวมค่าบริการ 10%): ${withFee.toFixed(2)} บาท`;
+        });
+    }
+
+    function markAsPaid() {
+      fetch(sheetURL + `?action=paid&id=${id}`)
+        .then(res => res.text())
+        .then(data => alert("บันทึกสถานะชำระเงินแล้ว"));
+    }
+  </script>
+</body>
+</html>
